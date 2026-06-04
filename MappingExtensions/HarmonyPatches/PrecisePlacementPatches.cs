@@ -25,14 +25,28 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(BeatmapObjectSpawnMovementData __instance, ref Vector3 __result, int noteLineIndex, NoteLineLayer noteLineLayer)
         {
-            if (MappingExtensionsData.IsPrecisionValue(noteLineIndex))
+            var hasPrecisionLineIndex = MappingExtensionsData.IsPrecisionValue(noteLineIndex);
+            var hasPrecisionLineLayer = MappingExtensionsData.IsPrecisionValue((int)noteLineLayer);
+
+            if (hasPrecisionLineIndex)
             {
                 noteLineIndex = MappingExtensionsData.NormalizePrecisionLineIndex(noteLineIndex);
 
                 // TODO: Find a better name for this variable.
                 var num = -(__instance._noteLinesCount - 1f) * 0.5f;
                 num += noteLineIndex * StaticBeatmapObjectSpawnMovementData.kNoteLinesDistance / 1000;
-                __result = __instance._rightVec * num + new Vector3(0f, StaticBeatmapObjectSpawnMovementData.LineYPosForLineLayer(noteLineLayer) + StaticBeatmapObjectSpawnMovementData.kObstacleVerticalOffset, 0f);
+                var y = StaticBeatmapObjectSpawnMovementData.LineYPosForLineLayer(noteLineLayer) + StaticBeatmapObjectSpawnMovementData.kObstacleVerticalOffset;
+                if (hasPrecisionLineLayer)
+                {
+                    y -= __instance._jumpOffsetYProvider.jumpOffsetY;
+                }
+
+                __result = __instance._rightVec * num + new Vector3(0f, y, 0f);
+            }
+            else if (hasPrecisionLineLayer)
+            {
+                var y = StaticBeatmapObjectSpawnMovementData.LineYPosForLineLayer(noteLineLayer) + StaticBeatmapObjectSpawnMovementData.kObstacleVerticalOffset - __instance._jumpOffsetYProvider.jumpOffsetY;
+                __result = new Vector3(__result.x, y, __result.z);
             }
         }
     }

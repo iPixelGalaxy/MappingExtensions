@@ -18,7 +18,7 @@ namespace MappingExtensions.HarmonyPatches
         internal const int MaxEncodedType = StartHeightMarker + MaxWallHeight * PrecisionUnit + MaxStartHeight;
 
         private const float WallHeightToGameHeightMultiplier = 5f;
-        private const int EncodedLayerGroundOffset = 1334;
+        private const int EncodedLayerGroundOffset = 1000;
         private const float StartHeightToLayerDivisor = 750f;
 
         internal enum Mode
@@ -75,7 +75,8 @@ namespace MappingExtensions.HarmonyPatches
                 return 0;
             }
 
-            // Legacy ME v2 encoded wall start height into the same 1/1000 layer space used by precision placement.
+            // Legacy ME v2 expands authored start height into the precision layer space used by wall art maps.
+            // An offset of 1000 keeps converted walls aligned to Beat Saber's 0.6m wall grid.
             return (int)(decodedType.startHeight / StartHeightToLayerDivisor * WallHeightToGameHeightMultiplier * PrecisionUnit + EncodedLayerGroundOffset);
         }
     }
@@ -155,27 +156,39 @@ namespace MappingExtensions.HarmonyPatches
 
         private static void Postfix(ObstacleController __instance, ObstacleData obstacleData)
         {
-            if (obstacleData.duration >= 0f || __instance._length >= 0f)
+            if (!ShouldNormalizeVisualLength(obstacleData, __instance._length))
             {
                 return;
             }
 
-            var lengthPerBeat = __instance._length / obstacleData.duration;
-            if (lengthPerBeat <= Mathf.Epsilon)
-            {
-                return;
-            }
-
-            var positiveLength = StretchableObstacleNegativeLengthPatch.GetNegativeWallVisualLength(__instance._length);
+            var positiveLength = StretchableObstacleNegativeLengthPatch.GetNormalizedVisualLength(__instance._length);
             __instance._length = positiveLength;
-            __instance._obstacleDuration = positiveLength / lengthPerBeat;
+            __instance._stretchableObstacle.SetSizeAndOffset(__instance._width, __instance._height, positiveLength, __instance.manualUvOffset);
+            if (obstacleData.duration < 0f)
+            {
+                __instance._obstacleDuration = -obstacleData.duration;
+            }
+        }
+
+        private static bool ShouldNormalizeVisualLength(ObstacleData obstacleData, float length)
+        {
+            if (length < 0f)
+            {
+                return true;
+            }
+
+            return obstacleData.duration <= 0.25f
+                   && (MappingExtensionsData.IsPrecisionValue(obstacleData.lineIndex)
+                       || MappingExtensionsData.IsPrecisionValue(obstacleData.width)
+                       || MappingExtensionsData.IsPrecisionValue((int)obstacleData.lineLayer)
+                       || MappingExtensionsData.IsPrecisionValue(obstacleData.height));
         }
     }
 
     [HarmonyPatch(typeof(StretchableObstacle), "CalculateObstacleTransformProperties")]
     internal static class StretchableObstacleNegativeLengthPatch
     {
-        internal const float NegativeWallMinimumVisualLength = 35f;
+        internal const float NegativeWallVisualLength = 0.05f;
 
         private static void Postfix(
             StretchableObstacle __instance,
@@ -191,15 +204,15 @@ namespace MappingExtensions.HarmonyPatches
                 return;
             }
 
-            var positiveLength = GetNegativeWallVisualLength(length);
+            var positiveLength = GetNormalizedVisualLength(length);
             size = new Vector3(width, height, positiveLength);
             localPosition = new Vector3(0f, height * 0.5f, positiveLength * -0.5f);
             scale = size - __instance._coreOffset;
         }
 
-        internal static float GetNegativeWallVisualLength(float length)
+        internal static float GetNormalizedVisualLength(float length)
         {
-            return Mathf.Max(-length, NegativeWallMinimumVisualLength);
+            return length < 0f || length > NegativeWallVisualLength ? NegativeWallVisualLength : length;
         }
     }
 
@@ -227,7 +240,7 @@ namespace MappingExtensions.HarmonyPatches
                 return;
             }
 
-            var positiveLength = StretchableObstacleNegativeLengthPatch.GetNegativeWallVisualLength(length);
+            var positiveLength = StretchableObstacleNegativeLengthPatch.GetNormalizedVisualLength(length);
             var localPosition = new Vector3(0f, height * 0.5f, positiveLength * -0.5f);
 
             stretchableObstacle._obstacleFrame.length = positiveLength;
