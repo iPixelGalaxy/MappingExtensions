@@ -17,9 +17,9 @@ namespace MappingExtensions.HarmonyPatches
         private const int MaxWallHeight = 4000;
         internal const int MaxEncodedType = StartHeightMarker + MaxWallHeight * PrecisionUnit + MaxStartHeight;
 
-        private const float WallHeightToGameHeightMultiplier = 5f;
-        private const int EncodedLayerGroundOffset = 1000;
-        private const float StartHeightToLayerDivisor = 750f;
+        private const int PrecisionLayerMarker = PrecisionUnit;
+        private const float LegacyFullWallHeightLineUnits = 5f;
+        private const float LegacyFullStartHeightValue = PrecisionUnit * 0.75f;
 
         internal enum Mode
         {
@@ -65,7 +65,7 @@ namespace MappingExtensions.HarmonyPatches
 
         internal static int EncodeHeight(DecodedType decodedType)
         {
-            return (int)(decodedType.wallHeight / (float)PrecisionUnit * WallHeightToGameHeightMultiplier * PrecisionUnit + PrecisionHeightMarker);
+            return EncodePrecision(decodedType.wallHeight / (float)PrecisionUnit * LegacyFullWallHeightLineUnits);
         }
 
         internal static int EncodeLayer(DecodedType decodedType)
@@ -75,9 +75,13 @@ namespace MappingExtensions.HarmonyPatches
                 return 0;
             }
 
-            // Legacy ME v2 expands authored start height into the precision layer space used by wall art maps.
-            // An offset of 1000 keeps converted walls aligned to Beat Saber's 0.6m wall grid.
-            return (int)(decodedType.startHeight / StartHeightToLayerDivisor * WallHeightToGameHeightMultiplier * PrecisionUnit + EncodedLayerGroundOffset);
+            var layer = decodedType.startHeight / LegacyFullStartHeightValue * LegacyFullWallHeightLineUnits;
+            return (int)(layer * PrecisionUnit + PrecisionLayerMarker);
+        }
+
+        private static int EncodePrecision(float value)
+        {
+            return (int)(value * PrecisionUnit + PrecisionHeightMarker);
         }
     }
 
@@ -132,6 +136,7 @@ namespace MappingExtensions.HarmonyPatches
                 }))
                 .InstructionEnumeration();
         }
+
     }
 
     [HarmonyPatch(typeof(ObstacleController), nameof(ObstacleController.Init))]
