@@ -8,70 +8,103 @@ using UnityEngine;
 
 namespace MappingExtensions.HarmonyPatches
 {
+    internal static class LegacyObstacleTypeEncoding
+    {
+        private const int PrecisionUnit = 1000;
+        private const int PrecisionHeightMarker = 1000;
+        private const int StartHeightMarker = 4001;
+        private const int MaxStartHeight = 999;
+        private const int MaxWallHeight = 4000;
+        internal const int MaxEncodedType = StartHeightMarker + MaxWallHeight * PrecisionUnit + MaxStartHeight;
+
+        private const float WallHeightToGameHeightMultiplier = 5f;
+        private const int EncodedLayerGroundOffset = 1334;
+        private const float StartHeightToLayerDivisor = 750f;
+
+        internal enum Mode
+        {
+            PrecisionHeight,
+            PrecisionHeightWithStart
+        }
+
+        internal readonly struct DecodedType
+        {
+            internal readonly Mode mode;
+            internal readonly int wallHeight;
+            internal readonly int startHeight;
+
+            internal DecodedType(Mode mode, int wallHeight, int startHeight)
+            {
+                this.mode = mode;
+                this.wallHeight = wallHeight;
+                this.startHeight = startHeight;
+            }
+        }
+
+        internal static bool TryDecode(int encodedType, out DecodedType decodedType)
+        {
+            decodedType = default;
+            if (encodedType is < PrecisionHeightMarker or > MaxEncodedType)
+            {
+                return false;
+            }
+
+            if (encodedType >= StartHeightMarker)
+            {
+                var encodedHeightAndStart = encodedType - StartHeightMarker;
+                decodedType = new DecodedType(
+                    Mode.PrecisionHeightWithStart,
+                    encodedHeightAndStart / PrecisionUnit,
+                    encodedHeightAndStart % PrecisionUnit);
+                return true;
+            }
+
+            decodedType = new DecodedType(Mode.PrecisionHeight, encodedType - PrecisionHeightMarker, 0);
+            return true;
+        }
+
+        internal static int EncodeHeight(DecodedType decodedType)
+        {
+            return (int)(decodedType.wallHeight / (float)PrecisionUnit * WallHeightToGameHeightMultiplier * PrecisionUnit + PrecisionHeightMarker);
+        }
+
+        internal static int EncodeLayer(DecodedType decodedType)
+        {
+            if (decodedType.mode != Mode.PrecisionHeightWithStart)
+            {
+                return 0;
+            }
+
+            // Legacy ME v2 encoded wall start height into the same 1/1000 layer space used by precision placement.
+            return (int)(decodedType.startHeight / StartHeightToLayerDivisor * WallHeightToGameHeightMultiplier * PrecisionUnit + EncodedLayerGroundOffset);
+        }
+    }
+
     [HarmonyPatch(typeof(BeatmapDataLoaderVersion2_6_0AndEarlier.BeatmapDataLoader.ObstacleConverter), nameof(BeatmapDataLoaderVersion2_6_0AndEarlier.BeatmapDataLoader.ObstacleConverter.GetHeightForObstacleType))]
     internal static class BeatmapDataLoaderObstacleConverterGetHeightForObstacleTypePatch
     {
-        private enum Mode
-        {
-            PreciseHeight,
-            PreciseHeightStart
-        }
-
         private static void Postfix(ref int __result, BeatmapSaveDataVersion2_6_0AndEarlier.ObstacleType obstacleType)
         {
-            var type = (int)obstacleType;
-
-            if (type is < 1000 or > 4005000)
+            if (!LegacyObstacleTypeEncoding.TryDecode((int)obstacleType, out var decodedType))
             {
                 return;
             }
 
-            int obsHeight;
-
-            var mode = type is >= 4001 and <= 4005000 ? Mode.PreciseHeightStart : Mode.PreciseHeight;
-            if (mode == Mode.PreciseHeightStart)
-            {
-                type -= 4001;
-                obsHeight = type / 1000;
-            }
-            else
-            {
-                obsHeight = type - 1000;
-            }
-
-            __result = (int)(obsHeight / 1000f * 5 * 1000 + 1000);
+            __result = LegacyObstacleTypeEncoding.EncodeHeight(decodedType);
         }
     }
 
     [HarmonyPatch(typeof(BeatmapDataLoaderVersion2_6_0AndEarlier.BeatmapDataLoader.ObstacleConverter), nameof(BeatmapDataLoaderVersion2_6_0AndEarlier.BeatmapDataLoader.ObstacleConverter.GetLayerForObstacleType))]
     internal static class BeatmapDataLoaderObstacleConverterGetLayerForObstacleTypePatch
     {
-        private enum Mode
-        {
-            PreciseHeight,
-            PreciseHeightStart
-        }
-
         private static void Postfix(ref int __result, BeatmapSaveDataVersion2_6_0AndEarlier.ObstacleType obstacleType)
         {
-            var type = (int)obstacleType;
-
-            if (type is < 1000 or > 4005000)
+            if (!LegacyObstacleTypeEncoding.TryDecode((int)obstacleType, out var decodedType))
             {
                 return;
             }
 
-            var startHeight = 0;
-
-            var mode = type is >= 4001 and <= 4005000 ? Mode.PreciseHeightStart : Mode.PreciseHeight;
-            if (mode == Mode.PreciseHeightStart)
-            {
-                type -= 4001;
-                startHeight = type % 1000;
-            }
-
-            // Math that is accurate in shape/proportions but has walls being too high.
-            __result = (int)(startHeight / 750f * 5 * 1000 + 1334);
+            __result = LegacyObstacleTypeEncoding.EncodeLayer(decodedType);
         }
     }
 
