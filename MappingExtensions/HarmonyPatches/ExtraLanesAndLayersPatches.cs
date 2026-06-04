@@ -54,7 +54,7 @@ namespace MappingExtensions.HarmonyPatches
                     new CodeMatch(OpCodes.Ldloc_S),
                     new CodeMatch(OpCodes.Callvirt),
                     new CodeMatch(OpCodes.Ldelem_Ref))
-                .ThrowIfInvalid()
+                .ThrowIfInvalid("Could not find notes-in-column array access in BeatmapObjectsInTimeRowProcessor")
                 .Insert(
                     new CodeInstruction(OpCodes.Ldc_I4_0),
                     new CodeInstruction(OpCodes.Ldc_I4_3),
@@ -154,7 +154,7 @@ namespace MappingExtensions.HarmonyPatches
                     new CodeMatch(OpCodes.Ldelem),
                     new CodeMatch(OpCodes.Ldc_R4),
                     new CodeMatch(OpCodes.Call))
-                .ThrowIfInvalid()
+                .ThrowIfInvalid("Could not find jump offset table access in NoteJump.Init")
                 .Insert(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Math), nameof(Math.Abs), new[] { typeof(int) })))
                 .InstructionEnumeration();
         }

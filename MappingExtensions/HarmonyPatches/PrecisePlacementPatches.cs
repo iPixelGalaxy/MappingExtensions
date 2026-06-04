@@ -8,17 +8,9 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(BeatmapObjectSpawnMovementData __instance, ref Vector3 __result, int noteLineIndex, NoteLineLayer noteLineLayer)
         {
-            if (!Plugin.active)
+            if (MappingExtensionsData.IsPrecisionValue(noteLineIndex))
             {
-                return;
-            }
-
-            if (noteLineIndex is >= 1000 or <= -1000)
-            {
-                if (noteLineIndex <= -1000)
-                {
-                    noteLineIndex += 2000;
-                }
+                noteLineIndex = MappingExtensionsData.NormalizePrecisionLineIndex(noteLineIndex);
 
                 // TODO: Find a better name for this variable.
                 var num = -(__instance._noteLinesCount - 1f) * 0.5f;
@@ -33,17 +25,9 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(BeatmapObjectSpawnMovementData __instance, ref Vector3 __result, int noteLineIndex, NoteLineLayer noteLineLayer)
         {
-            if (!Plugin.active)
+            if (MappingExtensionsData.IsPrecisionValue(noteLineIndex))
             {
-                return;
-            }
-
-            if (noteLineIndex is >= 1000 or <= -1000)
-            {
-                if (noteLineIndex <= -1000)
-                {
-                    noteLineIndex += 2000;
-                }
+                noteLineIndex = MappingExtensionsData.NormalizePrecisionLineIndex(noteLineIndex);
 
                 // TODO: Find a better name for this variable.
                 var num = -(__instance._noteLinesCount - 1f) * 0.5f;
@@ -58,18 +42,13 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(BeatmapObjectSpawnMovementData __instance, ref float __result, NoteLineLayer lineLayer)
         {
-            if (!Plugin.active)
-            {
-                return;
-            }
-
             var delta = __instance._topLinesHighestJumpPosY - __instance._upperLinesHighestJumpPosY;
             var layer = (int)lineLayer;
-            if (layer is >= 1000 or <= -1000)
+            if (MappingExtensionsData.IsPrecisionValue(layer))
             {
                 __result = __instance._upperLinesHighestJumpPosY - delta - delta + __instance._jumpOffsetYProvider.jumpOffsetY + layer * delta / 1000;
             }
-            else if (layer is > 2 or < 0)
+            else if (Plugin.active && (layer is > 2 or < 0))
             {
                 __result = __instance._upperLinesHighestJumpPosY - delta + __instance._jumpOffsetYProvider.jumpOffsetY + layer * delta;
             }
@@ -81,20 +60,16 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(ref float __result, NoteLineLayer lineLayer)
         {
-            if (!Plugin.active)
-            {
-                return;
-            }
-
-            const float delta = StaticBeatmapObjectSpawnMovementData.kTopLinesYPos - StaticBeatmapObjectSpawnMovementData.kUpperLinesYPos;
+            const float delta = StaticBeatmapObjectSpawnMovementData.kNoteLinesDistance;
+            const float upperLinesYPos = StaticBeatmapObjectSpawnMovementData.kBaseLinesYPos + StaticBeatmapObjectSpawnMovementData.kNoteLinesDistance;
             var layer = (int)lineLayer;
-            if (layer is >= 1000 or <= -1000)
+            if (MappingExtensionsData.IsPrecisionValue(layer))
             {
-                __result = StaticBeatmapObjectSpawnMovementData.kUpperLinesYPos - delta - delta + layer * delta / 1000;
+                __result = upperLinesYPos - delta - delta + layer * delta / 1000;
             }
-            else if (layer is > 2 or < 0)
+            else if (Plugin.active && (layer is > 2 or < 0))
             {
-                __result = StaticBeatmapObjectSpawnMovementData.kUpperLinesYPos - delta + layer * delta;
+                __result = upperLinesYPos - delta + layer * delta;
             }
         }
     }
@@ -104,17 +79,9 @@ namespace MappingExtensions.HarmonyPatches
     {
         private static void Postfix(ref Vector2 __result, int noteLineIndex, int noteLinesCount, NoteLineLayer noteLineLayer)
         {
-            if (!Plugin.active)
+            if (MappingExtensionsData.IsPrecisionValue(noteLineIndex))
             {
-                return;
-            }
-
-            if (noteLineIndex is >= 1000 or <= -1000)
-            {
-                if (noteLineIndex <= -1000)
-                {
-                    noteLineIndex += 2000;
-                }
+                noteLineIndex = MappingExtensionsData.NormalizePrecisionLineIndex(noteLineIndex);
 
                 // TODO: Find a better name for this variable.
                 var num = -(noteLinesCount - 1f) * 0.5f;

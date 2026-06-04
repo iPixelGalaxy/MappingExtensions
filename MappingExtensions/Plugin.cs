@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using HarmonyLib;
 using IPA;
@@ -69,10 +70,12 @@ namespace MappingExtensions
 
             var gameplayCoreSceneSetupData = BS_Utils.Plugin.LevelData.GameplayCoreSceneSetupData;
             var difficultyData = SongCore.Collections.GetCustomLevelSongDifficultyData(gameplayCoreSceneSetupData.beatmapKey);
-            if (difficultyData != null && difficultyData.additionalDifficultyData._requirements.Contains("Mapping Extensions"))
-            {
-                active = true;
-            }
+            active = difficultyData != null && HasMappingExtensionsRequirement(difficultyData.additionalDifficultyData._requirements);
+        }
+
+        internal static bool HasMappingExtensionsRequirement(IEnumerable<string>? requirements)
+        {
+            return requirements != null && requirements.Any(r => r != null && r.StartsWith("Mapping Extensions", System.StringComparison.Ordinal));
         }
 
         public static void ForceActivateForSong()
